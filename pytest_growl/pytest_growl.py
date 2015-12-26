@@ -1,9 +1,5 @@
 import time
-try:
-    import gntp.notifier
-except ImportError:
-    from growl_fallback import growl_fallback
-    pass
+from growl import growl
 
 
 QUIET_MODE_INI='quiet_growl'
@@ -57,8 +53,7 @@ def pytest_terminal_summary(terminalreporter):
             send_growl(title="Session Ended At", message="%s" % time.strftime("%I:%M:%S %p"))
 
 
+
+
 def send_growl(message='', title=''):
-    if 'gntp' in globals():
-        gntp.notifier.mini(message, title=title, applicationName='pytest', noteType='Notification')
-    else:
-        growl_fallback(message, title)
+    growl(message=message, title=title, icon = None)
