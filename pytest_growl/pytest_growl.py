@@ -1,6 +1,10 @@
 import time
+import pkg_resources
 from growl import growl
 
+icon_success = pkg_resources.resource_stream(__name__, "icon_success.png").read()
+icon_failed = pkg_resources.resource_stream(__name__, "icon_failed.png").read()
+icon_error = pkg_resources.resource_stream(__name__, "icon_error.png").read()
 
 QUIET_MODE_INI='quiet_growl'
 
@@ -12,7 +16,7 @@ def pytest_addoption(parser):
                     default=True,
                     help='Enable Growl notifications.')
     parser.addini(QUIET_MODE_INI,
-                  default=False,
+                  default=True,
                   help='Minimize notifications (only results).')
 
 
@@ -26,34 +30,46 @@ def pytest_terminal_summary(terminalreporter):
     if terminalreporter.config.option.growl:
         tr = terminalreporter
         quiet_mode = tr.config.getini(QUIET_MODE_INI)
-        try:
-            passes = len(tr.stats['passed'])
-        except KeyError:
-            passes = 0
-        try:
-            fails = len(tr.stats['failed'])
-        except KeyError:
-            fails = 0
-        try:
-            skips = len(tr.stats['deselected'])
-        except KeyError:
-            skips = 0
-        if (passes + fails + skips) == 0:
-            send_growl(title="Alert", message="No Tests Ran")
-            if not quiet_mode:
-                send_growl(title="Session Ended At", message="%s" % time.strftime("%I:%M:%S %p"))
-            return
+ 
+        passes = len(tr.stats.get("passed", []) )
+        fails = len(tr.stats.get("failed", []) )
+        errors = len(tr.stats.get("error", []) )
+        skips = len(tr.stats.get("deselected", []) )
+
+        if errors == 1:
+            test_name = tr.stats["error"][0].nodeid
+            send_growl(
+                title = "Error in %s" % test_name,
+                message = "Error %s\n(Tests: %d failed, %d ok)" % (test_name, fails, passes),
+                icon = icon_error)
+        elif errors > 1:
+            send_growl(
+                title = "Error in %d files" % errors,
+                message = "Errors: %d\n(Tests: %d failed, %d ok)" % (errors, fails, passes),
+                icon = icon_error)
+        elif fails == 1:
+            test_name = tr.stats["failed"][0].nodeid
+            send_growl(
+                title = tr.stats["failed"][0].location[0],
+                message = "%s failed\n%d tests ok" % (test_name, passes),
+                icon = icon_failed)
+        elif fails > 1:
+            send_growl(
+                title = "%d tests failed" % fails,
+                message = "%d failed, %d ok" % (fails, passes),
+                icon = icon_failed)
+        elif skips > 1:
+            send_growl(title="Tests Complete",
+                message = "%s Passed %s Failed %s Skipped" % (passes, fails, skips),
+                icon = icon_success)
         else:
-            if not skips:
-                message_to_send = "%s Passed %s Failed" % (passes, fails)
-            else:
-                message_to_send = "%s Passed %s Failed %s Skipped" % (passes, fails, skips)
-        send_growl(title="Tests Complete", message=message_to_send)
+            send_growl(title="Tests Complete",
+                message="%s Passed %s Failed" % (passes, fails),
+                icon = icon_success)
         if not quiet_mode:
             send_growl(title="Session Ended At", message="%s" % time.strftime("%I:%M:%S %p"))
 
 
 
-
-def send_growl(message='', title=''):
-    growl(message=message, title=title, icon = None)
+def send_growl(message='', title='Blarg', icon = None):
+    growl(message=message, title=title, icon = icon)
