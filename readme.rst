@@ -1,12 +1,10 @@
 pytest-growl
 ------------
- :Author: Anthony Long
- :Date: 2/11/2011
- :Version: 0.1
+ :Author: Johannes Brodwall (original by Anthony Long)
+ :Date: 09/01/2016
+ :Version: 0.2
 
 This plugin sends growl notifications when your test session begins and ends, along with result counts in a short format.
-
-.. image:: http://files.droplr.com/files/138477723/xvjZ.Screen%20shot%202011-02-11%20at%2015%3A06%3A58.png
 
 The theme displayed in the image is included if you wish to use it.
 
