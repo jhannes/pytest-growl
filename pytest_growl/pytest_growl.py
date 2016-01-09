@@ -1,6 +1,5 @@
-import time
+import os, re, time
 import pkg_resources
-import os
 from growl import growl
 
 icon_success = pkg_resources.resource_stream(__name__, "icon_success.png").read()
@@ -44,22 +43,7 @@ def pytest_terminal_summary(terminalreporter):
 
         if errors == 1:
             error_test = tr.stats["error"][0]
-            try:
-                path = error_test.longrepr.reprcrash.path
-                filename = os.path.basename(path)
-                lineno = error_test.longrepr.reprcrash.lineno
-                message = error_test.longrepr.reprcrash.message
-                growl(
-                    title = "1 error %s:%d" % (filename, lineno),
-                    message = "%s\n\n(Tests: %d failed, %d ok)" % (message, fails, passes),
-                    icon = icon_error,
-                    callback = callback_url.format(path=path, lineno=lineno))
-            except AttributeError:
-                print error_test.longrepr.__dict__
-                growl(
-                    title = "1 error %s" % (error_test.nodeid),
-                    message = "%s\n\n%d tests ok" % (error_test.nodeid, passes),
-                    icon = icon_failed)
+            growl_single_error(error_test, tr)
         elif errors > 1:
             growl(
                 title = "Error in %d files" % errors,
@@ -102,5 +86,58 @@ def pytest_terminal_summary(terminalreporter):
                 icon = icon_success)
         if not quiet_mode:
             growl(title="Session Ended At", message="%s" % time.strftime("%I:%M:%S %p"))
+
+
+def growl_single_error(test_entry, tr):
+    passes = len(tr.stats.get("passed", []))
+    fails = len(tr.stats.get("failed", []))
+    callback_url = tr.config.getini(GROWL_CALLBACK_URL)
+
+    try:
+        path = test_entry.longrepr.reprcrash.path
+        filename = os.path.basename(path)
+        lineno = test_entry.longrepr.reprcrash.lineno
+        message = test_entry.longrepr.reprcrash.message
+        growl(
+            title = "1 error %s:%d" % (filename, lineno),
+            message = "%s\n\n(Tests: %d failed, %d ok)" % (message, fails, passes),
+            icon = icon_error,
+            callback = callback_url.format(path=path, lineno=lineno))
+    except AttributeError:
+        # Try and parse an error on the format:
+        # ..../python.py:610: in _importtestmodule
+        #     mod = self.fspath.pyimport(ensuresyspath=importmode)
+        # .../local.py:650: in pyimport
+        #     __import__(modname)
+        # E     File "something.py", line 10
+        # E       some python code
+        # E                                                      ^
+        # E   SyntaxError: invalid syntax
+        try:
+            longrepr = test_entry.longrepr.longrepr.split("\n")
+
+            path = "unknown"
+            lineno = 0
+            message = ""
+
+            for line in longrepr:
+                match = re.match('^E\s+File "(.*)", line (\d+)$', line)
+                if match:
+                    path, lineno = match.group(1), match.group(2)
+                elif line.startswith("E "):
+                    message += line + "\n"
+
+            filename = os.path.basename(path)
+            growl(
+                title = "1 error %s:%s" % (filename, lineno),
+                message = "%s\n(Tests: %d failed, %d ok)" % (message, fails, passes),
+                icon = icon_error,
+                callback = callback_url.format(path=path, lineno=lineno))
+        except AttributeError:
+                print test_entry.longrepr.__dict__
+                growl(
+                    title = "1 error %s" % (test_entry.nodeid),
+                    message = "%s\n\n%d tests ok" % (test_entry.nodeid, passes),
+                    icon = icon_failed)
 
 
