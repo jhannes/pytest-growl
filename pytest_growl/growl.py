@@ -13,8 +13,8 @@ except ImportError:
     pass
 
 
-def growl(message='', title='', icon = None):
+def growl(message='', title='', icon = None, callback = None):
     if 'gntp' in globals():
-        notifier.notify(noteType = "Notification", title = title, description = message, icon = icon)
+        notifier.notify(noteType = "Notification", title = title, description = message, icon = icon, callback = callback)
     else:
         growl_fallback(message, title)
